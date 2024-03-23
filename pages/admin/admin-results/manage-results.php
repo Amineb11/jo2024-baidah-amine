@@ -68,62 +68,46 @@ $prenom_utilisateur = $_SESSION['nom_utilisateur'];
     <main>
         <h1>Liste des Résultats</h1>
         <div class="action-buttons">
-            <button onclick="openAddResultsForm()">Ajouter un Résultat</button>
+            <button onclick="openAddResultForm()">Ajouter un résultat</button>
             <!-- Autres boutons... -->
         </div>
-        <!-- Tableau des épreuves -->
+        <!-- Tableau des résultats -->
         <?php
         require_once("../../../database/database.php");
 
         try {
-            // Requête pour récupérer la liste des épreuves depuis la base de données
-            $query = "SELECT nom_athlete, prenom_athlete, nom_pays, nom_sport, nom_epreuve, resultat
-            FROM ATHLETE
-            INNER JOIN PAYS ON ATHLETE.id_pays = PAYS.id_pays
-            INNER JOIN PARTICIPER ON ATHLETE.id_athlete = PARTICIPER.id_athlete
-            INNER JOIN EPREUVE ON PARTICIPER.id_epreuve = EPREUVE.id_epreuve
-            INNER JOIN SPORT ON EPREUVE.id_sport = SPORT.id_sport
-            ORDER BY nom_athlete";
+            // Requête pour récupérer la liste des résultats depuis la base de données
+            $query = "SELECT PARTICIPER.*, ATHLETE.nom_athlete, ATHLETE.prenom_athlete, EPREUVE.nom_epreuve 
+                      FROM PARTICIPER
+                      INNER JOIN ATHLETE ON PARTICIPER.id_athlete = ATHLETE.id_athlete
+                      INNER JOIN EPREUVE ON PARTICIPER.id_epreuve = EPREUVE.id_epreuve
+                      ORDER BY nom_athlete";
+
             $statement = $connexion->prepare($query);
             $statement->execute();
 
-            // Vérifier s'il y a des résultats
+            // Afficher les données dans un tableau
             if ($statement->rowCount() > 0) {
-                echo "<table>";
-                echo "<tr>
-                <th>Nom Athlète</th>
-                <th>Prénom Athlète</th>
-                <th>Pays</th>
-                <th>Sport</th>
-                <th>Épreuves</th>
-                <th>Résultats</th>
-                <th>Modifier</th>
-                <th>Supprimer</th>
-                </tr>";
+                echo "<table><tr><th>Athlète</th><th>Epreuves</th><th>Résultats</th><th>Modifier</th><th>Supprimer</th></tr>";
 
-                // Afficher les données dans un tableau
                 while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
                     echo "<tr>";
-                    echo "<td>" . htmlspecialchars($row['prenom_athlete']) . "</td>";
-                    echo "<td>" . htmlspecialchars($row['nom_athlete']) . "</td>";
-                    echo "<td>" . htmlspecialchars($row['nom_pays']) . "</td>";
-                    echo "<td>" . htmlspecialchars($row['nom_sport']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['nom_athlete']) . " " . htmlspecialchars($row['prenom_athlete']) . "</td>";
                     echo "<td>" . htmlspecialchars($row['nom_epreuve']) . "</td>";
                     echo "<td>" . htmlspecialchars($row['resultat']) . "</td>";
-                    echo "<td><button onclick='openModifyResultsForm(\"{$row['resultat']}\")'>Modifier</button></td>";
-                    echo "<td><button onclick='deleteResultsConfirmation(\"{$row['resultat']}\")'>Supprimer</button></td>";
+                    echo "<td><button onclick='openModifyResultForm({$row['id_athlete']}, {$row['id_epreuve']})'>Modifier</button></td>";
+                    echo "<td><button onclick='deleteResultConfirmation({$row['id_athlete']})'>Supprimer</button></td>";
                     echo "</tr>";
                 }
 
                 echo "</table>";
             } else {
-                echo "<p>Aucun résultat trouvé.</p>";
+                echo "<p>Aucun athlète trouvé.</p>";
             }
         } catch (PDOException $e) {
             echo "Erreur : " . $e->getMessage();
         }
         ?>
-        
         <p class="paragraph-link">
             <a class="link-home" href="../admin.php">Accueil administration</a>
         </p>
@@ -134,22 +118,17 @@ $prenom_utilisateur = $_SESSION['nom_utilisateur'];
         </figure>
     </footer>
     <script>
-        function openAddResultsForm() {
-            // Rediriger vers la page d'ajout de résultat
+        function openAddResultForm() {
             window.location.href = 'add-results.php';
         }
 
-        function openModifyResultsForm(resultat) {
-            console.log("Ouverture de la page de modification pour le résultat : " + resultat);
-            // Rediriger vers la page de modification avec le résultat
-            window.location.href = 'modify-results.php?resultat=' + encodeURIComponent(resultat);
+        function openModifyResultForm(id_athlete, id_epreuve) {
+            window.location.href = 'modify-results.php?id_athlete=' + id_athlete + '&id_epreuve=' + id_epreuve;
         }
 
-        function deleteResultsConfirmation(resultat) {
-            // Afficher une fenêtre de confirmation pour supprimer un résultat
+        function deleteResultConfirmation(id_athlete) {
             if (confirm("Êtes-vous sûr de vouloir supprimer ce résultat?")) {
-                // Rediriger vers la page de suppression avec le résultat
-                window.location.href = 'delete-results.php?resultat=' + encodeURIComponent(resultat);
+                window.location.href = 'delete-results.php?id_athlete=' + id_athlete;
             }
         }
     </script>
