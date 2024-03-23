@@ -7,111 +7,92 @@ if (!isset($_SESSION['login'])) {
     header('Location: ../../../index.php');
     exit();
 }
-error_reporting(E_ALL);
-ini_set("display_errors", 1);
 
-// Vérifiez si l'ID du résultat est fourni dans l'URL
-if (!isset($_GET['resultat'])) {
-    $_SESSION['error'] = "ID du résultat manquant.";
-    header("Location: manage-results.php");
+// Vérifiez si l'ID de l'épreuve est fourni dans l'URL
+if (!isset($_GET['id_epreuve'])) {
+    $_SESSION['error'] = "ID de l'épreuve manquant.";
+    header("Location: modify-result.php");
     exit();
 }
 
-$resultat = filter_input(INPUT_GET, 'resultat', FILTER_SANITIZE_STRING);
+$id_epreuve = filter_input(INPUT_GET, 'id_epreuve', FILTER_VALIDATE_INT);
 
-// Vérifiez si l'ID du résultat est vide
-if (empty($resultat)) {
-    $_SESSION['error'] = "ID du résultat invalide.";
-    header("Location: manage-results.php");
-    exit();
-}
-
-// Récupérez les informations du résultat pour affichage dans le formulaire
-try {
-    $queryResultat = "SELECT id_athlete, resultat, id_epreuve
-                    FROM PARTICIPER
-                    WHERE resultat = :resultat";
-    $statementResultat = $connexion->prepare($queryResultat);
-    $statementResultat->bindParam(":resultat", $resultat, PDO::PARAM_STR);
-    $statementResultat->execute();
-
-    if ($statementResultat->rowCount() > 0) {
-        $resultatInfo = $statementResultat->fetch(PDO::FETCH_ASSOC);
-    } else {
-        $_SESSION['error'] = "Résultat non trouvé.";
-        header("Location: manage-results.php");
-        exit();
-    }
-} catch (PDOException $e) {
-    $_SESSION['error'] = "Erreur de base de données : " . $e->getMessage();
-    header("Location: manage-results.php");
-    exit();
-}
-
-// Récupérez la liste des athlètes pour la liste déroulante
-try {
-    $queryAthletes = "SELECT id_athlete, nom_athlete, prenom_athlete FROM ATHLETE";
-    $statementAthletes = $connexion->query($queryAthletes);
-    $athletes = $statementAthletes->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $_SESSION['error'] = "Erreur de base de données : " . $e->getMessage();
-    header("Location: manage-results.php");
-    exit();
-}
-
-// Récupérez la liste des épreuves pour la liste déroulante
-try {
-    $queryEpreuves = "SELECT id_epreuve, nom_epreuve FROM EPREUVE";
-    $statementEpreuves = $connexion->query($queryEpreuves);
-    $epreuves = $statementEpreuves->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $_SESSION['error'] = "Erreur de base de données : " . $e->getMessage();
-    header("Location: manage-results.php");
+// Vérifiez si l'ID de l'épreuve est un entier valide
+if (!$id_epreuve && $id_epreuve !== 0) {
+    $_SESSION['error'] = "ID de l'épreuve invalide.";
+    header("Location: modify-result.php");
     exit();
 }
 
 // Vérifiez si le formulaire est soumis
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Assurez-vous d'obtenir des données sécurisées et filtrées
-    $id_athlete = filter_input(INPUT_POST, 'id_athlete', FILTER_VALIDATE_INT);
     $resultat = filter_input(INPUT_POST, 'resultat', FILTER_SANITIZE_STRING);
-    $id_epreuve = filter_input(INPUT_POST, 'id_epreuve', FILTER_VALIDATE_INT);
-
-    // Vérifiez si des champs obligatoires sont vides
-    if (!$id_athlete || empty($resultat) || !$id_epreuve) {
-        $_SESSION['error'] = "Veuillez sélectionner un athlète, une épreuve et entrer un résultat.";
-        header("Location: modify-results.php?resultat=$resultat");
-        exit();
-    }
+    $new_id_epreuve = filter_input(INPUT_POST, 'id_epreuve', FILTER_VALIDATE_INT);
+    $id_athlete = filter_input(INPUT_POST, 'id_athlete', FILTER_VALIDATE_INT);
 
     try {
-        // Requête pour mettre à jour le résultat
-        $query = "UPDATE PARTICIPER
-                  SET resultat = :resultat,
-                      id_epreuve = :id_epreuve
-                  WHERE resultat = :old_resultat AND id_athlete = :id_athlete";
-
+        // Requête pour mettre à jour le résultat, l'ID de l'épreuve et l'ID de l'athlète
+        $query = "UPDATE PARTICIPER SET resultat = :resultat, id_epreuve = :new_id_epreuve WHERE id_epreuve = :id_epreuve AND id_athlete = :id_athlete";
         $statement = $connexion->prepare($query);
         $statement->bindParam(":resultat", $resultat, PDO::PARAM_STR);
+        $statement->bindParam(":new_id_epreuve", $new_id_epreuve, PDO::PARAM_INT);
         $statement->bindParam(":id_epreuve", $id_epreuve, PDO::PARAM_INT);
-        $statement->bindParam(":old_resultat", $_GET['resultat'], PDO::PARAM_STR);
         $statement->bindParam(":id_athlete", $id_athlete, PDO::PARAM_INT);
 
         // Exécutez la requête
         if ($statement->execute()) {
-            $_SESSION['success'] = "Le résultat a été modifié avec succès.";
+            $_SESSION['success'] = "Le résultat de l'épreuve a été modifié avec succès.";
             header("Location: manage-results.php");
             exit();
         } else {
-            $_SESSION['error'] = "Erreur lors de la modification du résultat.";
-            header("Location: modify-results.php?resultat=$resultat");
+            $_SESSION['error'] = "Erreur lors de la modification du résultat de l'épreuve.";
+            header("Location: modify-result.php?id_epreuve=$id_epreuve");
             exit();
         }
     } catch (PDOException $e) {
         $_SESSION['error'] = "Erreur de base de données : " . $e->getMessage();
-        header("Location: modify-results.php?resultat=$resultat");
+        header("Location: modify-result.php?id_epreuve=$id_epreuve");
         exit();
     }
+}
+
+// Récupérez les informations de l'épreuve pour affichage dans le formulaire
+try {
+    $queryEvent = "SELECT * FROM PARTICIPER WHERE id_epreuve = :id_epreuve";
+    $statementEvent = $connexion->prepare($queryEvent);
+    $statementEvent->bindParam(":id_epreuve", $id_epreuve, PDO::PARAM_INT);
+    $statementEvent->execute();
+
+    if ($statementEvent->rowCount() > 0) {
+        $event = $statementEvent->fetch(PDO::FETCH_ASSOC);
+    } else {
+        $_SESSION['error'] = "Épreuve non trouvée.";
+        header("Location: modify-result.php");
+        exit();
+    }
+} catch (PDOException $e) {
+    $_SESSION['error'] = "Erreur de base de données : " . $e->getMessage();
+    header("Location: modify-result.php");
+    exit();
+}
+
+// Récupérer la liste des épreuves pour le menu déroulant
+try {
+    $queryEpreuves = "SELECT id_epreuve, nom_epreuve FROM EPREUVE";
+    $statementEpreuves = $connexion->prepare($queryEpreuves);
+    $statementEpreuves->execute();
+    $epreuves = $statementEpreuves->fetchAll(PDO::FETCH_ASSOC);
+
+    // Récupérer la liste des athlètes pour le menu déroulant
+    $queryAthletes = "SELECT id_athlete, nom_athlete, prenom_athlete FROM ATHLETE";
+    $statementAthletes = $connexion->prepare($queryAthletes);
+    $statementAthletes->execute();
+    $athletes = $statementAthletes->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $_SESSION['error'] = "Erreur de base de données : " . $e->getMessage();
+    header("Location: modify-result.php");
+    exit();
 }
 ?>
 
@@ -128,6 +109,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Modifier un Résultat - Jeux Olympiques 2024</title>
     <style>
         /* Ajoutez votre style CSS ici */
+        .form-input {
+            margin-bottom: 20px;
+        }
+
+        .form-input label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-input select,
+        .form-input input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .form-input input[type="submit"] {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        .form-input input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
     </style>
 </head>
 
@@ -156,34 +168,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             unset($_SESSION['error']);
         }
         ?>
-        <form action="modify-results.php?resultat=<?php echo $resultat; ?>" method="post" onsubmit="return confirm('Êtes-vous sûr de vouloir modifier ce résultat?')">
-            <input type="hidden" name="resultat" value="<?php echo $resultat; ?>">
-
-            <label for="id_athlete">Athlète :</label>
-            <select name="id_athlete" id="id_athlete" required>
-                <?php foreach ($athletes as $athlete) : ?>
-                    <option value="<?php echo $athlete['id_athlete']; ?>" <?php echo ($athlete['id_athlete'] == $resultatInfo['id_athlete']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($athlete['prenom_athlete'] . ' ' . $athlete['nom_athlete']); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-
-            <label for="id_epreuve">Épreuve :</label>
-            <select name="id_epreuve" id="id_epreuve" required>
-                <?php foreach ($epreuves as $epreuve) : ?>
-                    <option value="<?php echo $epreuve['id_epreuve']; ?>" <?php echo ($epreuve['id_epreuve'] == $resultatInfo['id_epreuve']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($epreuve['nom_epreuve']); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-
-            <label for="resultat">Résultat :</label>
-            <input type="text" name="resultat" id="resultat" value="<?php echo htmlspecialchars($resultatInfo['resultat']); ?>" required>
-
+        <form action="modify-results.php?id_epreuve=<?php echo $id_epreuve; ?>" method="post"
+            onsubmit="return confirm('Êtes-vous sûr de vouloir modifier ce résultat?')">
+            <div class="form-input">
+                <label for="id_athlete">Athlète :</label>
+                <select name="id_athlete" id="id_athlete" required>
+                    <?php foreach ($athletes as $athlete) : ?>
+                        <option value="<?php echo $athlete['id_athlete']; ?>" <?php if ($athlete['id_athlete'] == $event['id_athlete']) echo "selected"; ?>>
+                            <?php echo htmlspecialchars($athlete['prenom_athlete'] . " " . $athlete['nom_athlete']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-input">
+                <label for="id_epreuve">Épreuve :</label>
+                <select name="id_epreuve" id="id_epreuve" required>
+                    <?php foreach ($epreuves as $epreuve) : ?>
+                        <option value="<?php echo $epreuve['id_epreuve']; ?>" <?php if ($epreuve['id_epreuve'] == $event['id_epreuve']) echo "selected"; ?>>
+                            <?php echo htmlspecialchars($epreuve['nom_epreuve']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-input">
+                <label for="resultat">Résultat :</label>
+                <input type="text" name="resultat" id="resultat"
+                    value="<?php echo htmlspecialchars($event['resultat']); ?>" required>
+            </div>
             <input type="submit" value="Modifier le Résultat">
         </form>
         <p class="paragraph-link">
-            <a class="link-home" href="manage-results.php">Retour à la gestion des résultats</a>
+            <a class="link-home" href="manage-results.php">Retour à la gestion des épreuves</a>
         </p>
     </main>
     <footer>
